@@ -877,7 +877,7 @@
         } else {
             mainContent.classList.remove('is-empty');
             suggestionsContainer.style.display = 'none';
-            userInput.placeholder = "Message Bee AI...";
+            userInput.placeholder = "Message AI...";
             
             appendSystemMessage("Workspace Connection Secure");
 
@@ -986,11 +986,11 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: activeConfig.apiModel, 
-                    messages: apiMessages, 
-                    stream: true,
-                    temperature: 0.6,
-                    max_completion_tokens: 9000
+                    "model": activeConfig.apiModel, 
+                    "messages": apiMessages, 
+                    "stream": true,
+                   " temperature": 0.6,
+                    "max_completion_tokens": 9000,
                      "compound_custom": {
     "tools": {
       "enabled_tools": [
