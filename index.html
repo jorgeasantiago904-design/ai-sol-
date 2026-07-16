@@ -639,7 +639,7 @@
                     <path d="M12 2C12.3 5 13.5 8.5 15.5 10.5C17.5 12.5 21 13.7 24 14C21 14.3 17.5 15.5 15.5 17.5C13.5 19.5 12.3 23 12 26C11.7 23 10.5 19.5 8.5 17.5C6.5 15.5 3 14.3 0 14C3 13.7 6.5 12.5 8.5 10.5C10.5 8.5 11.7 5 12 2Z" fill="#d97756" />
                     <path d="M12 5C12.2 7 13 9 14.5 10.5C16 12 18 12.8 20 13C18 13.2 16 14 14.5 15.5C13 17 12.2 19 12 21C11.8 19 11 17 9.5 15.5C8 14 6 13.2 4 13C6 12.8 8 12 9.5 10.5C11 9 11.8 7 12 5Z" fill="#d97756" opacity="0.8" transform="rotate(45 12 13)" />
                 </svg>
-                <span class="welcome-text" id="greetingText">Good evening, Jorge</span>
+                <span class="welcome-text" id="greetingText">Good evening, user</span>
             </div>
 
             <div class="chat-container" id="chatBox"></div>
@@ -657,11 +657,12 @@
                         
                         <div class="right-controls">
                             <div class="model-select-pill">
-                                <span id="selectedModelLabel">Sonnet 5 Medium</span>
+                                <span id="selectedModelLabel">sonnet 5</span>
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px; height:12px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                 <select id="modelSelect" onchange="updateModelLabel()">
-                                    <option value="groq/compound">Sonnet 5 Medium</option>
-                                    <option value="groq/compound">Sonnet 5 Flash</option>
+                                    <option value="groq/sonnet-medium">opus 4.8</option>
+                                    <option value="groq/sonnet-flash">Sonnet 5 </option>
+                                    <option value="groq/llama-coder">fable 5</option>
                                 </select>
                             </div>
                             <button class="control-btn" onclick="triggerToast('Microphone input')">
@@ -705,7 +706,26 @@
     </div>
 
 <script>
-    const SYSTEM_PROMPT = "Your name is Bee AI. You are a highly professional, polite, and logical AI assistant styled inside an ultra-minimal workspace interface. Talk cleanly, elegantly, and give precise, highly-formatted responses.";
+    // --- MODEL SYSTEM PROMPTS & CONFIGURATIONS ---
+    // Access this configuration block directly to modify prompts or add more models!
+    const MODEL_CONFIGS = {
+        'groq/sonnet-medium': {
+            displayName: "opus 4.8",
+            systemPrompt: "Your name is opus AI. You are a highly professional, polite, and logical AI assistant styled inside an ultra-minimal workspace interface. Talk cleanly, elegantly, and give precise, highly-formatted responses.",
+            apiModel: "groq/compound"
+        },
+        'groq/sonnet-flash': {
+            displayName: "Sonnet 5 ",
+            systemPrompt: "your name is Sonnet. You are a lightning-fast creative designer agent. Keep your answers ultra-punchy, brief, and highly functional. Emphasize speed and action.",
+            apiModel: "groq/compound"
+        },
+        'groq/llama-coder': {
+            displayName: "fable 5",
+            systemPrompt: "your name is fable You are an elite code architect. Write strictly optimal, modular code with comments limited only to explanations of extreme complexity. Do not output prose or conversational text unless requested.",
+            apiModel: "groq/compound"
+        }
+    };
+
     const apiKey = "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"; 
 
     const userInput = document.getElementById('userInput');
@@ -742,6 +762,12 @@
         greetingText.innerText = `${greeting}, Jorge`;
     }
 
+    // Pull config for currently selected model ID
+    function getCurrentModelConfig() {
+        const selectedVal = modelSelect.value;
+        return MODEL_CONFIGS[selectedVal] || MODEL_CONFIGS['groq/sonnet-medium'];
+    }
+
     window.onload = () => {
         updateGreeting();
         const savedLibrary = localStorage.getItem('claude_ai_library');
@@ -765,9 +791,12 @@
 
     function createNewChat() {
         const id = 'chat_' + Date.now();
+        const config = getCurrentModelConfig();
+
         chatLibrary[id] = {
             title: "New Session",
-            history: [{ "role": "system", "content": SYSTEM_PROMPT }]
+            modelId: modelSelect.value, // Bind current model to session state
+            history: [{ "role": "system", "content": config.systemPrompt }]
         };
         currentChatId = id;
         saveToStorage();
@@ -779,6 +808,13 @@
         if (currentChatId === id) return;
         playSound();
         currentChatId = id;
+
+        // Restore chosen model configuration for this exact historic thread
+        if (chatLibrary[id].modelId && MODEL_CONFIGS[chatLibrary[id].modelId]) {
+            modelSelect.value = chatLibrary[id].modelId;
+            updateModelLabel(false);
+        }
+
         saveToStorage();
         renderSidebar();
         loadChatMessages();
@@ -869,10 +905,17 @@
         }
     }
 
-    function updateModelLabel() {
-        playSound();
-        const selectedOption = modelSelect.options[modelSelect.selectedIndex].text;
-        selectedModelLabel.innerText = selectedOption;
+    function updateModelLabel(shouldPlaySound = true) {
+        if (shouldPlaySound) playSound();
+        const config = getCurrentModelConfig();
+        selectedModelLabel.innerText = config.displayName;
+
+        // If this is a completely fresh chat, apply the dynamic system prompt immediately
+        if (chatLibrary[currentChatId] && chatLibrary[currentChatId].history.length === 1) {
+            chatLibrary[currentChatId].history[0].content = config.systemPrompt;
+            chatLibrary[currentChatId].modelId = modelSelect.value;
+            saveToStorage();
+        }
     }
 
     // Pill suggestions dynamic insertion
@@ -916,7 +959,7 @@
         userInput.value = '';
         userInput.style.height = '24px';
 
-        const chosenModel = modelSelect.value;
+        const activeConfig = getCurrentModelConfig();
         const aiMessageTextBlock = appendAiMessagePlaceholder();
         
         aiMessageTextBlock.innerHTML = `
@@ -943,7 +986,7 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: chosenModel, 
+                    model: activeConfig.apiModel, 
                     messages: apiMessages, 
                     stream: true,
                     temperature: 0.6,
